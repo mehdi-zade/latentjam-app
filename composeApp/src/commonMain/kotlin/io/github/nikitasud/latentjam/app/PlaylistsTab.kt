@@ -41,8 +41,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.HelpOutline
+import io.github.nikitasud.latentjam.library.StandardMood
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Add
@@ -140,6 +143,9 @@ internal fun PlaylistsTabContent(
     onMove: (from: Int, to: Int) -> Unit = { _, _ -> },
     onCreate: () -> Unit = {},
     onImport: () -> Unit = {},
+    onOpenMoodPlaylist: ((id: String, name: String) -> Unit)? = null,
+    onOpenFlaggedTracks: (() -> Unit)? = null,
+    flaggedTracksCount: Int = 0,
     currentAccent: androidx.compose.ui.graphics.Color? = null,
     artworkModifier: @Composable (routeId: String) -> Modifier = { Modifier },
 ) {
@@ -208,6 +214,96 @@ internal fun PlaylistsTabContent(
                                         artworkModifier = artworkModifier("auto:${auto.kind.name}"),
                                         onClick = { onOpenAuto(auto) },
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (flaggedTracksCount > 0 && onOpenFlaggedTracks != null) {
+                    item(key = "needs-review") {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 6.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onOpenFlaggedTracks() },
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(MaterialTheme.colorScheme.error, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.HelpOutline,
+                                        contentDescription = "Review",
+                                        tint = MaterialTheme.colorScheme.onError,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                                androidx.compose.foundation.layout.Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Needs Review ($flaggedTracksCount)",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                    )
+                                    Text(
+                                        text = "Incomplete metadata or missing cover art",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (onOpenMoodPlaylist != null) {
+                    item(key = "mood-playlists") {
+                        Column(modifier = Modifier.padding(top = 10.dp)) {
+                            PlaylistSectionLabel(
+                                text = "Mood Playlists",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(StandardMood.entries) { mood ->
+                                    Surface(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { onOpenMoodPlaylist(mood.id, mood.displayName) },
+                                        color = MaterialTheme.colorScheme.surfaceContainer,
+                                        shape = RoundedCornerShape(12.dp),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(
+                                                imageVector = mood.icon(),
+                                                contentDescription = mood.displayName,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = mood.displayName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

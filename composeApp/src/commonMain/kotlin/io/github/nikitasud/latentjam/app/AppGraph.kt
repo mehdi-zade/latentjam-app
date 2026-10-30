@@ -16,6 +16,7 @@ import io.github.nikitasud.latentjam.history.SmartPresses
 import io.github.nikitasud.latentjam.history.listeningHistoryModule
 import io.github.nikitasud.latentjam.library.MusicLibrary
 import io.github.nikitasud.latentjam.library.Playlists
+import io.github.nikitasud.latentjam.library.MoodManager
 import io.github.nikitasud.latentjam.library.musicLibraryModule
 import io.github.nikitasud.latentjam.library.nowMillis
 import io.github.nikitasud.latentjam.playback.NextTrackChooser
@@ -449,6 +450,11 @@ object AppGraph {
     /** The device music collection. */
     val library: MusicLibrary
         get() = koin.get()
+
+    /** Mood allocation manager. */
+    val moodManager: MoodManager by lazy {
+        MoodManager()
+    }
 
     /** This platform's full-track loudness and sound-edge scan; null where none is bound. */
     internal val loudnessMeter: TrackLoudnessMeter?

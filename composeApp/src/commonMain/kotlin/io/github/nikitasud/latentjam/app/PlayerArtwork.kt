@@ -115,6 +115,8 @@ internal fun PlayerArtworkCard(
      * the skip action, and reaches no other track — so no neighbour may peek in behind it either.
      */
     skipChangesTrack: (forward: Boolean) -> Boolean = { true },
+    onSwipeRightPlaylist: (() -> Unit)? = null,
+    onSwipeLeftPlaylist: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -155,6 +157,8 @@ internal fun PlayerArtworkCard(
     val currentOnCollapseAbandon by rememberUpdatedState(onCollapseAbandon)
     val currentCanForward by rememberUpdatedState(canSkipForward)
     val currentCanBackward by rememberUpdatedState(canSkipBackward)
+    val currentOnSwipeRightPlaylist by rememberUpdatedState(onSwipeRightPlaylist)
+    val currentOnSwipeLeftPlaylist by rememberUpdatedState(onSwipeLeftPlaylist)
 
     LaunchedEffect(flipped, reduceMotion) {
         val target = if (flipped) 180f else 0f
@@ -299,8 +303,12 @@ internal fun PlayerArtworkCard(
                                 while (true) {
                                     if (change.isConsumed) return@awaitEachGesture
                                     dx = change.position.x - down.position.x
-                                    val blocked = (dx > 0f && !currentCanBackward) ||
-                                        (dx < 0f && !currentCanForward)
+                                    val hasCustomSwipe = currentOnSwipeRightPlaylist != null || currentOnSwipeLeftPlaylist != null
+                                    val blocked = if (hasCustomSwipe) {
+                                        false
+                                    } else {
+                                        (dx > 0f && !currentCanBackward) || (dx < 0f && !currentCanForward)
+                                    }
                                     val nowArmed = swipeCommits(dx, width, blocked)
                                     if (nowArmed && !thresholdAnnounced && change.pressed) {
                                         haptics.play(PlayerHaptic.THRESHOLD)
@@ -331,9 +339,17 @@ internal fun PlayerArtworkCard(
                                 // the settle timeout. Without a landing track the cover springs
                                 // back at once while the skip is still requested.
                                 val parksCover = changesTrack && currentNeighbourTrack(forward) != null
+                                val isSwipeRightAllocation = armed && dx > 0f && currentOnSwipeRightPlaylist != null
+                                val isSwipeLeftAllocation = armed && dx < 0f && currentOnSwipeLeftPlaylist != null
                                 if (armed) {
                                     haptics.play(PlayerHaptic.TAP)
-                                    if (parksCover) pendingSkip = forward
+                                    if (isSwipeRightAllocation) {
+                                        currentOnSwipeRightPlaylist?.invoke()
+                                    } else if (isSwipeLeftAllocation) {
+                                        currentOnSwipeLeftPlaylist?.invoke()
+                                    } else if (parksCover) {
+                                        pendingSkip = forward
+                                    }
                                 } else if (rejected) {
                                     haptics.play(PlayerHaptic.REJECT)
                                 }
@@ -342,7 +358,10 @@ internal fun PlayerArtworkCard(
                                     tilt.snapTo(if (reduceMotion) 0f else shown / width * SWIPE_TILT_DEGREES)
                                     dragTravel = null
                                     launch { tilt.animateTo(0f, returnSpec) }
-                                    if (parksCover) {
+                                    if (isSwipeRightAllocation || isSwipeLeftAllocation) {
+                                        travel.animateTo(0f, returnSpec)
+                                        swiping = false
+                                    } else if (parksCover) {
                                         travel.animateTo(
                                             targetValue = if (forward) -(width + gap) else width + gap,
                                             animationSpec = tween(if (reduceMotion) 0 else SWIPE_OUT_MS),

@@ -70,6 +70,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
@@ -144,6 +145,7 @@ import coil3.compose.AsyncImage
 import io.github.nikitasud.latentjam.app.generated.resources.Res
 import io.github.nikitasud.latentjam.app.generated.resources.action_cancel
 import io.github.nikitasud.latentjam.app.generated.resources.action_close
+import io.github.nikitasud.latentjam.app.generated.resources.action_delete
 import io.github.nikitasud.latentjam.app.generated.resources.action_next
 import io.github.nikitasud.latentjam.app.generated.resources.action_pause
 import io.github.nikitasud.latentjam.app.generated.resources.action_add_favorite
@@ -293,6 +295,9 @@ fun NowPlayingScreen(
     onAddQueueToPlaylist: (() -> Unit)?,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    onDeleteTrack: ((TrackDescriptor) -> Unit)? = null,
+    onSwipeRightPlaylist: (() -> Unit)? = null,
+    onSwipeLeftPlaylist: (() -> Unit)? = null,
     /** Bumped by the app when "Information" is chosen from the player's own actions sheet. */
     detailsRequest: Int = 0,
     /** Bumped by the app when "Sleep timer" is chosen from the player's own actions sheet. */
@@ -524,53 +529,32 @@ fun NowPlayingScreen(
                                         )
                                     }
                                 }
-                                IconButton(onClick = onToggleFavorite) {
-                                    // A like bounces once under the finger; removing one stays calm,
-                                    // and entering the screen with an old favourite stays still too.
-                                    val trackId = checkNotNull(now.track).id
-                                    val heartScale = remember(trackId) { Animatable(1f) }
-                                    var wasFavorite by remember(trackId) { mutableStateOf(isFavorite) }
-                                    LaunchedEffect(trackId, isFavorite, reduceMotion) {
-                                        val turnedOn = isFavorite && !wasFavorite
-                                        wasFavorite = isFavorite
-                                        if (turnedOn && !reduceMotion) {
-                                            heartScale.snapTo(0.6f)
-                                            heartScale.animateTo(
-                                                targetValue = 1f,
-                                                animationSpec = spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessMedium,
-                                                ),
+                                if (onDeleteTrack != null) {
+                                    var showDeleteConfirm by remember(now.track?.id) { mutableStateOf(false) }
+                                    if (showDeleteConfirm) {
+                                        now.track?.let { trackToDelete ->
+                                            DeleteTrackDialog(
+                                                track = trackToDelete,
+                                                onConfirm = {
+                                                    showDeleteConfirm = false
+                                                    onDeleteTrack.invoke(trackToDelete)
+                                                },
+                                                onDismiss = { showDeleteConfirm = false },
                                             )
-                                        } else {
-                                            // An unlike, a canceled bounce, or Reduce Motion changing
-                                            // mid-flight always restores the stable resting scale.
-                                            heartScale.snapTo(1f)
                                         }
                                     }
-                                    Icon(
-                                        modifier = Modifier.graphicsLayer {
-                                            scaleX = heartScale.value
-                                            scaleY = heartScale.value
+                                    IconButton(
+                                        onClick = {
+                                            haptics.play(PlayerHaptic.TAP)
+                                            showDeleteConfirm = true
                                         },
-                                        imageVector = if (isFavorite) {
-                                            Icons.Rounded.Favorite
-                                        } else {
-                                            Icons.Rounded.FavoriteBorder
-                                        },
-                                        contentDescription = stringResource(
-                                            if (isFavorite) {
-                                                Res.string.action_remove_favorite
-                                            } else {
-                                                Res.string.action_add_favorite
-                                            },
-                                        ),
-                                        tint = if (isFavorite) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            LocalContentColor.current
-                                        },
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.DeleteOutline,
+                                            contentDescription = stringResource(Res.string.action_delete),
+                                            tint = LocalContentColor.current,
+                                        )
+                                    }
                                 }
                             }
                             // One tap to the full list of actions; the sleep timer lives there too.
@@ -596,6 +580,8 @@ fun NowPlayingScreen(
                                         if (forward) live.queue.size > 1 || live.shuffleMode == ShuffleMode.SMART
                                         else live.positionMs <= PREVIOUS_RESTART_THRESHOLD_MS && live.queue.size > 1
                                     },
+                                    onSwipeRightPlaylist = onSwipeRightPlaylist,
+                                    onSwipeLeftPlaylist = onSwipeLeftPlaylist,
                                     flipped = flipped,
                                     onFlip = if (surface.allows(PlayerEntry.COVER_DETAILS)) {
                                         { turned -> flipped = turned }
