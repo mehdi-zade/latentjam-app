@@ -180,6 +180,7 @@ import io.github.nikitasud.latentjam.library.PlaylistTrackChange
 import io.github.nikitasud.latentjam.library.DefaultOnlineMetadataFetcher
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.library.defaultDirection
+import io.github.nikitasud.latentjam.library.tags.TagEdits
 import io.github.nikitasud.latentjam.library.tags.write.JournalState
 import io.github.nikitasud.latentjam.playback.PlaybackController
 import io.github.nikitasud.latentjam.playback.ShuffleMode
@@ -2839,11 +2840,10 @@ private fun AppShell(
                                             currentAccent = browseAccentInk(accent.value),
                                             onCreate = { showCreatePlaylist = true },
                                             onImport = { m3uExchange.import() },
-                                            undecidedCount = tracksById.values.toList().ifEmpty { library.scan().tracks }
-                                                .let { all ->
-                                                    val assigned = playlistsState.playlists.flatMap { it.trackIds }.toSet()
-                                                    all.count { it.id.value !in assigned }
-                                                },
+                                            undecidedCount = run {
+                                                val assigned = playlistsState.playlists.flatMap { it.trackIds }.toSet()
+                                                tracksById.values.count { it.id.value !in assigned }
+                                            },
                                             onOpenUndecided = {
                                                 scope.launch {
                                                     updateTrackSelection(emptySet())
@@ -4595,7 +4595,7 @@ private fun AppShell(
             FlaggedTracksSheet(
                 flaggedTracks = flaggedList,
                 onEditTrack = { track ->
-                    playback.play(listOf(track), 0)
+                    scope.launch { playback.play(listOf(track), 0) }
                     showFlaggedSheet = false
                     showTrackInfo(track.id, editing = true)
                 },

@@ -283,7 +283,7 @@ internal fun PlaylistsTabContent(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.QueueMusic,
+                                Icons.AutoMirrored.Outlined.QueueMusic,
                                 contentDescription = "Undecided",
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(24.dp),
