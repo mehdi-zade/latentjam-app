@@ -2846,7 +2846,7 @@ private fun AppShell(
                                                 scope.launch {
                                                     val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
                                                     val stats = AppGraph.history.stats()
-                                                    val playCounts = stats.mapValues { it.value.playCount }
+                                                    val playCounts = stats.mapValues { it.value.listens }
                                                     val moodStates = AppGraph.moodManager.allStates()
                                                     val directTracks = all.filter { track -> moodStates[track.id]?.assignedMoodPlaylistIds?.contains(moodId) == true }
                                                     val queue = MoodQueueBuilder.buildQueue(
@@ -4533,7 +4533,7 @@ private fun AppShell(
                     scope.launch {
                         val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
                         val stats = AppGraph.history.stats()
-                        val playCounts = stats.mapValues { it.value.playCount }
+                        val playCounts = stats.mapValues { it.value.listens }
                         val moodStates = AppGraph.moodManager.allStates()
                         val custom = playlistsState.playlists.firstOrNull { it.id == id }
                         val directTracks = if (custom != null) {
