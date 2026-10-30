@@ -4,10 +4,8 @@
  */
 package io.github.nikitasud.latentjam.library
 
-import io.github.nikitasud.latentjam.smart.SemanticLabel
 import io.github.nikitasud.latentjam.smart.TrackDescriptor
 import io.github.nikitasud.latentjam.smart.TrackId
-import io.github.nikitasud.latentjam.smart.TrackSemantics
 
 /**
  * Standard mood categories for mood-based playlists.
@@ -15,14 +13,13 @@ import io.github.nikitasud.latentjam.smart.TrackSemantics
 public enum class StandardMood(
     public val id: String,
     public val displayName: String,
-    public val primarySemanticLabel: SemanticLabel? = null,
 ) {
-    ENERGETIC("mood_energetic", "Energetic", SemanticLabel.ENERGY_HIGH),
-    CHILL("mood_chill", "Chill & Relax", SemanticLabel.ENERGY_LOW),
-    HAPPY("mood_happy", "Happy & Uplifting", SemanticLabel.MOOD_HAPPY),
-    MELANCHOLIC("mood_melancholic", "Melancholic & Sad", SemanticLabel.MOOD_SAD),
-    FOCUS("mood_focus", "Focus & Ambient", SemanticLabel.GENRE_AMBIENT_SOUNDTRACK),
-    PARTY("mood_party", "Party & Dance", SemanticLabel.GENRE_ELECTRONIC);
+    ENERGETIC("mood_energetic", "Energetic"),
+    CHILL("mood_chill", "Chill & Relax"),
+    HAPPY("mood_happy", "Happy & Uplifting"),
+    MELANCHOLIC("mood_melancholic", "Melancholic & Sad"),
+    FOCUS("mood_focus", "Focus & Ambient"),
+    PARTY("mood_party", "Party & Dance");
 
     public companion object {
         public fun fromId(id: String): StandardMood? = entries.firstOrNull { it.id == id }

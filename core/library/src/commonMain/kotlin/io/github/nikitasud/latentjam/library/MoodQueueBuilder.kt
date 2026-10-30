@@ -6,7 +6,6 @@ package io.github.nikitasud.latentjam.library
 
 import io.github.nikitasud.latentjam.smart.TrackDescriptor
 import io.github.nikitasud.latentjam.smart.TrackId
-import io.github.nikitasud.latentjam.smart.TrackSemantics
 
 /**
  * Builds and ranks a playback queue for a selected playlist/mood,

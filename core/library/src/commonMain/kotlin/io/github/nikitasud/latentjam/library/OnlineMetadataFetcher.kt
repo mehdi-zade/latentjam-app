@@ -25,7 +25,7 @@ public interface OnlineMetadataFetcher {
  * Safely returns null on timeout or network error so offline behavior is preserved.
  */
 public class DefaultOnlineMetadataFetcher : OnlineMetadataFetcher {
-    override suspend fun fetchMetadata(track: TrackDescriptor): OnlineMetadataResult? {
+    public override suspend fun fetchMetadata(track: TrackDescriptor): OnlineMetadataResult? {
         // Query term based on available title/artist or filename
         val query = track.title ?: track.fileName?.substringBeforeLast('.') ?: return null
         return try {
