@@ -3886,25 +3886,7 @@ private fun AppShell(
                         onDeleteTrack = { track -> deleteTrack(listOf(track)) },
                         onSwipeRightPlaylist = {
                             currentTrack?.let { track ->
-                                scope.launch {
-                                    val currentPid = activePlaylistId
-                                    val currentPName = activePlaylistName
-                                    if (currentPid == null || currentPid == "undecided") {
-                                        swipeLeftTargetTrack = track
-                                        showPlaylistAllocationDialog = true
-                                    } else {
-                                        AppGraph.playlists.addTracks(currentPid, listOf(track.id))
-                                        refreshPlaylistMemberships()
-                                        val access = tagAccess
-                                        if (access != null && currentPName != null) {
-                                            val key = access.keyOf(track)
-                                            if (key != null) {
-                                                access.coordinator.enqueue(listOf(key), TagEdits(genre = currentPName))
-                                            }
-                                        }
-                                        snackbar.showSnackbar("Confirmed for $currentPName")
-                                    }
-                                }
+                                deleteTrack(listOf(track))
                             }
                         },
                         onSwipeLeftPlaylist = {
@@ -4547,7 +4529,7 @@ private fun AppShell(
                             refreshPlaylistMemberships()
 
                             val access = tagAccess
-                            if (access != null) {
+                            if (access != null && access.canWriteSilently) {
                                 val key = access.keyOf(target)
                                 if (key != null) {
                                     val names = playlistsState.playlists.filter { it.id in selectedIds }.map { it.name }
@@ -4563,7 +4545,7 @@ private fun AppShell(
                             } else {
                                 snackbar.showSnackbar("Playlists updated")
                             }
-                            playback.next()
+                            playback.play()
                         }
                     },
                     onSelectUndecided = {
@@ -4576,7 +4558,7 @@ private fun AppShell(
                             }
                             refreshPlaylistMemberships()
                             snackbar.showSnackbar("Moved to Undecided")
-                            playback.next()
+                            playback.play()
                         }
                     },
                     onDismiss = { showPlaylistAllocationDialog = false },

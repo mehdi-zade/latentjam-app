@@ -43,6 +43,9 @@ internal class TagWriteAccess(
 ) {
     /** Null when this platform has no way to write the track at all. */
     fun keyOf(track: TrackDescriptor): String? = key(track)
+
+    val canWriteSilently: Boolean
+        get() = coordinator.backend.strategy == TagWriteStrategy.NO_CONSENT || coordinator.backend.hasWritePermission()
 }
 
 /** The process's tag-save access, or null where saving is impossible (no Activity, a malformed sandbox). */

@@ -5,6 +5,7 @@
 package io.github.nikitasud.latentjam.app
 
 import android.Manifest
+import android.os.Environment
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.Context
@@ -123,10 +124,18 @@ actual fun rememberTrackDeleter(onResult: (TrackDeleteReport) -> Unit): (List<Tr
 }
 
 private class AndroidTrackDeleteBackend(private val context: Context) : TrackDeleteBackend<IntentSender> {
-    override val strategy = trackDeleteStrategy(Build.VERSION.SDK_INT)
-    override fun hasWritePermission() = ContextCompat.checkSelfPermission(
-        context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
-    ) == PackageManager.PERMISSION_GRANTED
+    override val strategy get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+        TrackDeleteStrategy.NO_CONSENT
+    } else {
+        trackDeleteStrategy(Build.VERSION.SDK_INT)
+    }
+    override fun hasWritePermission() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
     override suspend fun presence(uri: String): DeletePresence = withContext(Dispatchers.IO) {
         try {

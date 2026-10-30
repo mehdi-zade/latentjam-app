@@ -207,7 +207,12 @@ actual fun TagWriteHost() {
  * sweep deletes every name it does not know.
  */
 private class AndroidTagWriteBackend(private val context: Context) : TagWriteBackend<IntentSender> {
-    override val strategy = tagWriteStrategy(Build.VERSION.SDK_INT)
+    override val strategy: TagWriteStrategy
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+            TagWriteStrategy.NO_CONSENT
+        } else {
+            tagWriteStrategy(Build.VERSION.SDK_INT)
+        }
     private val root = File(context.noBackupFilesDir, "tag-write")
     private val store = FileRecoveryDirectory(root, ::syncDirectory)
     private val requestFiles = File(context.noBackupFilesDir, "tag-write-requests")
@@ -229,9 +234,13 @@ private class AndroidTagWriteBackend(private val context: Context) : TagWriteBac
         storeReady.value
     }
 
-    override fun hasWritePermission() = ContextCompat.checkSelfPermission(
-        context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
-    ) == PackageManager.PERMISSION_GRANTED
+    override fun hasWritePermission() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
     override suspend fun batchConsent(keys: List<String>): IntentSender = withContext(Dispatchers.IO) {
         check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
