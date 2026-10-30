@@ -177,9 +177,7 @@ import io.github.nikitasud.latentjam.library.LibraryCatalog
 import io.github.nikitasud.latentjam.library.MusicLibrary
 import io.github.nikitasud.latentjam.library.Playlist
 import io.github.nikitasud.latentjam.library.PlaylistTrackChange
-import io.github.nikitasud.latentjam.library.MoodQueueBuilder
 import io.github.nikitasud.latentjam.library.DefaultOnlineMetadataFetcher
-import io.github.nikitasud.latentjam.library.StandardMood
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.library.defaultDirection
 import io.github.nikitasud.latentjam.library.tags.write.JournalState
@@ -1388,9 +1386,8 @@ private fun AppShell(
         val groupOrderedCatalog = remember(catalog, groupSortOrders) { catalog?.inGroupOrder(groupSortOrders) }
         val tracksById = remember(catalog) { catalog?.songs?.associateById().orEmpty() }
 
-        var showStartupPlaylistDialog by remember { mutableStateOf(true) }
-        var activeMoodPlaylistId by remember { mutableStateOf<String?>("mood_chill") }
-        var activeMoodPlaylistName by remember { mutableStateOf<String?>("Chill & Relax") }
+        var activePlaylistId by remember { mutableStateOf<String?>("undecided") }
+        var activePlaylistName by remember { mutableStateOf<String?>("Undecided") }
         var showPlaylistAllocationDialog by remember { mutableStateOf(false) }
         var swipeLeftTargetTrack by remember { mutableStateOf<TrackDescriptor?>(null) }
         var showFlaggedSheet by remember { mutableStateOf(false) }
@@ -2842,33 +2839,29 @@ private fun AppShell(
                                             currentAccent = browseAccentInk(accent.value),
                                             onCreate = { showCreatePlaylist = true },
                                             onImport = { m3uExchange.import() },
-                                            onOpenMoodPlaylist = { moodId, moodName ->
+                                            undecidedCount = tracksById.values.toList().ifEmpty { library.scan().tracks }
+                                                .let { all ->
+                                                    val assigned = playlistsState.playlists.flatMap { it.trackIds }.toSet()
+                                                    all.count { it.id.value !in assigned }
+                                                },
+                                            onOpenUndecided = {
                                                 scope.launch {
+                                                    updateTrackSelection(emptySet())
                                                     val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
-                                                    val stats = AppGraph.history.stats()
-                                                    val playCounts = stats.mapValues { it.value.listens }
-                                                    val moodStates = AppGraph.moodManager.allStates()
-                                                    val directTracks = all.filter { track -> moodStates[track.id]?.assignedMoodPlaylistIds?.contains(moodId) == true }
-                                                    val queue = MoodQueueBuilder.buildQueue(
-                                                        playlistId = moodId,
-                                                        allTracks = all,
-                                                        playlistTracks = directTracks,
-                                                        moodManager = AppGraph.moodManager,
-                                                        playCounts = playCounts,
-                                                        moodStates = moodStates,
-                                                    )
-                                                    if (queue.isNotEmpty()) {
-                                                        activeMoodPlaylistId = moodId
-                                                        activeMoodPlaylistName = moodName
-                                                        AppGraph.queueSource.value = QueueSource(
-                                                            kind = QueueSourceKind.COLLECTION,
-                                                            name = moodName,
-                                                            reference = moodId,
+                                                    val assigned = playlistsState.playlists.flatMap { it.trackIds }.toSet()
+                                                    val undecided = all.filter { it.id.value !in assigned }
+                                                    activePlaylistId = "undecided"
+                                                    activePlaylistName = "Undecided"
+                                                    updateSelectedCollection(
+                                                        CollectionSelection(
+                                                            title = "Undecided",
+                                                            subtitle = trackCountLabel(undecided.size),
+                                                            artworkUri = null,
+                                                            tracks = undecided,
+                                                            allowsTrackSelection = true,
+                                                            playlistId = "undecided",
                                                         )
-                                                        playback.play(queue, 0)
-                                                    } else {
-                                                        snackbar.showSnackbar("Mood playlist '$moodName' is currently empty")
-                                                    }
+                                                    )
                                                 }
                                             },
                                             onOpenFlaggedTracks = { showFlaggedSheet = true },
@@ -2910,6 +2903,8 @@ private fun AppShell(
                                             },
                                             onOpenPlaylist = { playlist ->
                                                 scope.launch {
+                                                    activePlaylistId = playlist.id
+                                                    activePlaylistName = playlist.name
                                                     updateTrackSelection(emptySet())
                                                     val resolved = tracksOf(playlist)
                                                     updateSelectedCollection(CollectionSelection(
@@ -3892,14 +3887,22 @@ private fun AppShell(
                         onSwipeRightPlaylist = {
                             currentTrack?.let { track ->
                                 scope.launch {
-                                    val currentPid = activeMoodPlaylistId ?: "mood_chill"
-                                    val currentPName = activeMoodPlaylistName ?: "Chill & Relax"
-                                    val alreadyAffirmed = AppGraph.moodManager.isAffirmed(track.id, currentPid)
-                                    if (alreadyAffirmed) {
-                                        snackbar.showSnackbar("Already affirmed for $currentPName")
+                                    val currentPid = activePlaylistId
+                                    val currentPName = activePlaylistName
+                                    if (currentPid == null || currentPid == "undecided") {
+                                        swipeLeftTargetTrack = track
+                                        showPlaylistAllocationDialog = true
                                     } else {
-                                        AppGraph.moodManager.affirmMood(track.id, currentPid)
-                                        snackbar.showSnackbar("Affirmed for $currentPName")
+                                        AppGraph.playlists.addTracks(currentPid, listOf(track.id))
+                                        refreshPlaylistMemberships()
+                                        val access = tagAccess
+                                        if (access != null && currentPName != null) {
+                                            val key = access.keyOf(track)
+                                            if (key != null) {
+                                                access.coordinator.enqueue(listOf(key), TagEdits(genre = currentPName))
+                                            }
+                                        }
+                                        snackbar.showSnackbar("Confirmed for $currentPName")
                                     }
                                 }
                             }
@@ -4525,71 +4528,54 @@ private fun AppShell(
 
         ShellDeleteDialogs(sheets, deleteTrack, clearSelection = { updateTrackSelection(emptySet()) })
 
-        if (showStartupPlaylistDialog) {
-            StartupMoodPlaylistDialog(
-                customPlaylists = playlistsState.playlists,
-                onSelectPlaylist = { id, name ->
-                    showStartupPlaylistDialog = false
-                    scope.launch {
-                        val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
-                        val stats = AppGraph.history.stats()
-                        val playCounts = stats.mapValues { it.value.listens }
-                        val moodStates = AppGraph.moodManager.allStates()
-                        val custom = playlistsState.playlists.firstOrNull { it.id == id }
-                        val directTracks = if (custom != null) {
-                            custom.trackIds.mapNotNull { tid -> tracksById[TrackId(tid)] }
-                        } else {
-                            all.filter { track -> moodStates[track.id]?.assignedMoodPlaylistIds?.contains(id) == true }
-                        }
-                        val queue = MoodQueueBuilder.buildQueue(
-                            playlistId = id,
-                            allTracks = all,
-                            playlistTracks = directTracks,
-                            moodManager = AppGraph.moodManager,
-                            playCounts = playCounts,
-                            moodStates = moodStates,
-                        )
-                        if (queue.isNotEmpty()) {
-                            activeMoodPlaylistId = id
-                            activeMoodPlaylistName = name
-                            AppGraph.queueSource.value = QueueSource(
-                                kind = QueueSourceKind.COLLECTION,
-                                name = name,
-                                reference = id,
-                            )
-                            playback.play(queue, 0)
-                        } else {
-                            snackbar.showSnackbar("Playlist '$name' is currently empty")
-                        }
-                    }
-                },
-                onDismiss = { showStartupPlaylistDialog = false },
-            )
-        }
-
         if (showPlaylistAllocationDialog) {
             swipeLeftTargetTrack?.let { target ->
                 PlaylistAllocationDialog(
                     track = target,
-                    currentPlaylistId = activeMoodPlaylistId,
-                    currentPlaylistName = activeMoodPlaylistName,
+                    currentPlaylistId = activePlaylistId,
+                    currentPlaylistName = activePlaylistName,
                     customPlaylists = playlistsState.playlists,
-                    onSelectPlaylist = { selectedId, selectedName ->
+                    onAssignPlaylists = { selectedIds ->
                         showPlaylistAllocationDialog = false
                         scope.launch {
-                            val fromPid = activeMoodPlaylistId ?: "mood_chill"
-                            AppGraph.moodManager.rejectMood(target.id, fromPid)
-                            AppGraph.moodManager.affirmMood(target.id, selectedId)
-                            snackbar.showSnackbar("Assigned to $selectedName")
+                            for (pid in selectedIds) {
+                                AppGraph.playlists.addTracks(pid, listOf(target.id))
+                            }
+                            if (activePlaylistId != null && activePlaylistId != "undecided" && activePlaylistId !in selectedIds) {
+                                AppGraph.playlists.removeTrack(activePlaylistId!!, target.id)
+                            }
+                            refreshPlaylistMemberships()
+
+                            val access = tagAccess
+                            if (access != null) {
+                                val key = access.keyOf(target)
+                                if (key != null) {
+                                    val names = playlistsState.playlists.filter { it.id in selectedIds }.map { it.name }
+                                    if (names.isNotEmpty()) {
+                                        access.coordinator.enqueue(listOf(key), TagEdits(genre = names.joinToString(", ")))
+                                    }
+                                }
+                            }
+
+                            val chosenNames = playlistsState.playlists.filter { it.id in selectedIds }.map { it.name }
+                            if (chosenNames.isNotEmpty()) {
+                                snackbar.showSnackbar("Assigned to: ${chosenNames.joinToString(", ")}")
+                            } else {
+                                snackbar.showSnackbar("Playlists updated")
+                            }
                             playback.next()
                         }
                     },
                     onSelectUndecided = {
                         showPlaylistAllocationDialog = false
                         scope.launch {
-                            val fromPid = activeMoodPlaylistId ?: "mood_chill"
-                            AppGraph.moodManager.setUndecided(target.id, fromPid)
-                            snackbar.showSnackbar("Marked as Undecided: will queue across all playlists")
+                            for (p in playlistsState.playlists) {
+                                if (p.trackIds.contains(target.id.value)) {
+                                    AppGraph.playlists.removeTrack(p.id, target.id)
+                                }
+                            }
+                            refreshPlaylistMemberships()
+                            snackbar.showSnackbar("Moved to Undecided")
                             playback.next()
                         }
                     },
@@ -4609,6 +4595,7 @@ private fun AppShell(
             FlaggedTracksSheet(
                 flaggedTracks = flaggedList,
                 onEditTrack = { track ->
+                    playback.play(listOf(track), 0)
                     showFlaggedSheet = false
                     showTrackInfo(track.id, editing = true)
                 },

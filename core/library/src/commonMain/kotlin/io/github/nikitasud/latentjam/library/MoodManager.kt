@@ -156,44 +156,7 @@ public class MoodManager(
             reason = null
         }
 
-        // 2. Initial mood playlist allocation
-        val assigned = current.assignedMoodPlaylistIds.toMutableSet()
-        val genre = track.genre?.lowercase()
-        val energy = track.energy
-
-        if (energy != null) {
-            if (energy >= 0.7f && StandardMood.ENERGETIC.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.ENERGETIC.id
-            }
-            if (energy <= 0.35f && StandardMood.CHILL.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.CHILL.id
-            }
-        }
-        if (genre != null) {
-            if ((genre.contains("ambient") || genre.contains("soundtrack") || genre.contains("classical") || genre.contains("chill")) && StandardMood.FOCUS.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.FOCUS.id
-            }
-            if ((genre.contains("dance") || genre.contains("electronic") || genre.contains("party") || genre.contains("pop") || genre.contains("house")) && StandardMood.PARTY.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.PARTY.id
-            }
-            if ((genre.contains("happy") || genre.contains("funk") || genre.contains("reggae")) && StandardMood.HAPPY.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.HAPPY.id
-            }
-            if ((genre.contains("sad") || genre.contains("blues") || genre.contains("melanchol") || genre.contains("acoustic")) && StandardMood.MELANCHOLIC.id !in current.rejectedMoodPlaylistIds) {
-                assigned += StandardMood.MELANCHOLIC.id
-            }
-        }
-
-        // If no explicit playlist and not rejected anywhere, default to undecided so it auditions everywhere
-        val isUndecided = if (assigned.isEmpty() && current.rejectedMoodPlaylistIds.isEmpty()) {
-            true
-        } else {
-            current.isUndecided
-        }
-
         val updated = current.copy(
-            assignedMoodPlaylistIds = assigned,
-            isUndecided = isUndecided,
             needsReview = needsReview,
             reviewReason = reason,
         )

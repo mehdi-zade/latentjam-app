@@ -45,7 +45,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HelpOutline
-import io.github.nikitasud.latentjam.library.StandardMood
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Add
@@ -143,24 +142,21 @@ internal fun PlaylistsTabContent(
     onMove: (from: Int, to: Int) -> Unit = { _, _ -> },
     onCreate: () -> Unit = {},
     onImport: () -> Unit = {},
-    onOpenMoodPlaylist: ((id: String, name: String) -> Unit)? = null,
+    onOpenUndecided: () -> Unit = {},
+    undecidedCount: Int = 0,
     onOpenFlaggedTracks: (() -> Unit)? = null,
     flaggedTracksCount: Int = 0,
     currentAccent: androidx.compose.ui.graphics.Color? = null,
     artworkModifier: @Composable (routeId: String) -> Modifier = { Modifier },
 ) {
-    // The scroll position SURVIVES leaving and re-entering the tab: an earlier build reset to
-    // the top on every return "so the auto playlists stay visible", and the losing side of
-    // that trade was every listener who had scrolled somewhere on purpose. The way back up is
-    // the fast-travel button instead of a forced teleport.
-    //
-    // A plain remember() did not hold that promise: the tabs live in a pager that keeps no page
-    // beyond the viewport (App.kt, beyondViewportPageCount = 0), so the offset died with the
-    // page it was remembered in. rememberLazyListState saves it inside the page's
-    // SaveableStateProvider and hands it back on return — the way the other tabs keep theirs.
     val listState = rememberLazyListState()
     val reduceMotion = rememberReduceMotion()
-    val featuredPlaylists = remember(autoPlaylists) { featuredAutoPlaylists(autoPlaylists) }
+    val bottomAutoKinds = listOf(AutoPlaylistKind.RECENTLY_PLAYED, AutoPlaylistKind.RECENTLY_ADDED)
+    val bottomAutos = remember(autoPlaylists) {
+        bottomAutoKinds.map { kind ->
+            autoPlaylists.firstOrNull { it.kind == kind } ?: AutoPlaylist(kind, emptyList())
+        }
+    }
     val orderIdentity = remember(playlists) { playlists.map { it.id } }
     @Composable fun UserPlaylistRow(index: Int, preview: Boolean = false) {
         val playlist = playlists[index]
@@ -188,7 +184,7 @@ internal fun PlaylistsTabContent(
             canReorder = playlists.size > 1,
             listState = listState,
             itemCount = playlists.size,
-            leadingItems = if (featuredPlaylists.isNotEmpty()) 3 else 2,
+            leadingItems = if (flaggedTracksCount > 0) 4 else 3,
             onMove = onMove,
             draggedItem = { index, modifier ->
                 Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
@@ -201,25 +197,6 @@ internal fun PlaylistsTabContent(
                 modifier = Modifier.fillMaxSize().fadingListTop { listState.canScrollBackward },
                 contentPadding = contentPadding,
             ) {
-                if (featuredPlaylists.isNotEmpty()) {
-                    item(key = "auto") {
-                        Column(modifier = Modifier.padding(top = 6.dp)) {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                items(featuredPlaylists, key = { it.kind.name }) { auto ->
-                                    AutoPlaylistCard(
-                                        auto = auto,
-                                        artworkModifier = artworkModifier("auto:${auto.kind.name}"),
-                                        onClick = { onOpenAuto(auto) },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
                 if (flaggedTracksCount > 0 && onOpenFlaggedTracks != null) {
                     item(key = "needs-review") {
                         Surface(
@@ -257,53 +234,10 @@ internal fun PlaylistsTabContent(
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                     )
                                     Text(
-                                        text = "Incomplete metadata or missing cover art",
+                                        text = "Click to hear & review incomplete metadata",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
                                     )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (onOpenMoodPlaylist != null) {
-                    item(key = "mood-playlists") {
-                        Column(modifier = Modifier.padding(top = 10.dp)) {
-                            PlaylistSectionLabel(
-                                text = "Mood Playlists",
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                            )
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                items(StandardMood.entries) { mood ->
-                                    Surface(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .clickable { onOpenMoodPlaylist(mood.id, mood.displayName) },
-                                        color = MaterialTheme.colorScheme.surfaceContainer,
-                                        shape = RoundedCornerShape(12.dp),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(
-                                                imageVector = mood.icon(),
-                                                contentDescription = mood.displayName,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                            androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                text = mood.displayName,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -329,6 +263,48 @@ internal fun PlaylistsTabContent(
                         }
                     }
                 }
+
+                // Dynamic Undecided playlist row
+                item(key = "undecided-playlist") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .clip(RoundedCornerShape(16.dp.corner()))
+                            .clickable(onClick = onOpenUndecided)
+                            .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp.corner())),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.QueueMusic,
+                                contentDescription = "Undecided",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Undecided",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "$undecidedCount tracks",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
                 item(key = "new-playlist") {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
@@ -394,6 +370,29 @@ internal fun PlaylistsTabContent(
                             .graphicsLayer { alpha = if (draggingIndex == index) 0f else 1f },
                     ) {
                         UserPlaylistRow(index)
+                    }
+                }
+
+                // Recently Played and Recently Added moved to the bottom of the page
+                item(key = "recent-header") {
+                    PlaylistSectionLabel(
+                        text = "Recent",
+                        modifier = Modifier.padding(start = 20.dp, end = 12.dp, top = 24.dp, bottom = 4.dp),
+                    )
+                }
+                item(key = "recent-auto") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 24.dp),
+                    ) {
+                        items(bottomAutos, key = { it.kind.name }) { auto ->
+                            AutoPlaylistCard(
+                                auto = auto,
+                                artworkModifier = artworkModifier("auto:${auto.kind.name}"),
+                                onClick = { onOpenAuto(auto) },
+                            )
+                        }
                     }
                 }
             }

@@ -164,7 +164,6 @@ import io.github.nikitasud.latentjam.app.generated.resources.info_lyrics
 import io.github.nikitasud.latentjam.app.generated.resources.lyrics_not_found
 import io.github.nikitasud.latentjam.app.generated.resources.now_playing_next
 import io.github.nikitasud.latentjam.app.generated.resources.now_playing_nothing
-import io.github.nikitasud.latentjam.app.generated.resources.now_playing_source
 import io.github.nikitasud.latentjam.app.generated.resources.queue_row_continuation
 import io.github.nikitasud.latentjam.app.generated.resources.queue_title
 import io.github.nikitasud.latentjam.app.generated.resources.queue_title_count
@@ -680,46 +679,7 @@ fun NowPlayingScreen(
                                                 )
                                             }
                                         }
-                                        if (shown.sourceLabel != null && shownTrack != null) {
-                                            // A quiet chip: the source reads as "where this track came
-                                            // from", and a tap goes there. A source that cannot be found
-                                            // again raises the queue it produced instead.
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                modifier = Modifier
-                                                    .padding(top = 2.dp)
-                                                    .clip(RoundedCornerShape(14.dp.corner()))
-                                                    .then(
-                                                        if (surface.allows(PlayerEntry.SOURCE_LINK)) {
-                                                            Modifier.clickable(role = Role.Button) {
-                                                                haptics.play(PlayerHaptic.TAP)
-                                                                if (onOpenSource?.invoke() != true) {
-                                                                    openQueue()
-                                                                }
-                                                            }
-                                                        } else Modifier,
-                                                    )
-                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(14.dp),
-                                                )
-                                                Text(
-                                                    text = stringResource(
-                                                        Res.string.now_playing_source,
-                                                        bidiWrap(shown.sourceLabel),
-                                                    ),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            }
-                                        }
+
                                     }
                                 }
 
@@ -1769,23 +1729,10 @@ private fun QueueSheetContent(
                 .height(QueueTitleRowHeight)
                 .clickable(role = Role.Button, onClickLabel = expandLabel, onClick = onExpand),
         ) {
-            IconButton(
-                onClick = onTogglePlayback,
-                enabled = queue.isNotEmpty(),
-                modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp).size(48.dp),
-            ) {
-                Icon(
-                    imageVector = if (showPauseButton) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = stringResource(
-                        if (showPauseButton) Res.string.action_pause else Res.string.action_play,
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
             AnimatedContent(
                 targetState = queue.size,
                 transitionSpec = { motionFadeThrough(reduceMotion) },
-                modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp),
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 16.dp),
                 label = "queue-count",
             ) { count ->
                 Text(
@@ -1800,27 +1747,6 @@ private fun QueueSheetContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            AnimatedContent(
-                targetState = queue.isNotEmpty() && onSaveQueue != null,
-                transitionSpec = { motionIconTransform(reduceMotion) },
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
-                label = "save-queue",
-            ) { canSave ->
-                Box(modifier = Modifier.size(QueueTitleRowHeight), contentAlignment = Alignment.Center) {
-                    if (canSave) {
-                        // A queue worth keeping — often SMART's work — becomes a playlist in two taps.
-                        IconButton(onClick = { onSaveQueue?.invoke() }, modifier = Modifier.size(QueueTitleRowHeight)) {
-                            Icon(
-                                imageVector = Icons.Rounded.LibraryAdd,
-                                contentDescription =
-                                    stringResource(Res.string.action_add_to_playlist),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-                }
             }
         }
         ReorderableLazyList(
