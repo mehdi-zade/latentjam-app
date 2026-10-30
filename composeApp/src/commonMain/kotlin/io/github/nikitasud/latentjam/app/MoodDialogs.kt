@@ -148,7 +148,7 @@ internal fun StartupMoodPlaylistDialog(
                         MoodSelectionRow(
                             title = playlist.name,
                             subtitle = "${playlist.trackIds.size} tracks",
-                            icon = Icons.AutoMirrored.rounded.QueueMusic,
+                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
                             onClick = { onSelectPlaylist(playlist.id, playlist.name) },
                         )
                     }
@@ -299,7 +299,7 @@ internal fun PlaylistAllocationDialog(
                         MoodSelectionRow(
                             title = playlist.name,
                             subtitle = "Assign to playlist",
-                            icon = Icons.AutoMirrored.rounded.QueueMusic,
+                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
                             onClick = { onSelectPlaylist(playlist.id, playlist.name) },
                         )
                     }

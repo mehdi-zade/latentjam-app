@@ -2844,7 +2844,7 @@ private fun AppShell(
                                             onImport = { m3uExchange.import() },
                                             onOpenMoodPlaylist = { moodId, moodName ->
                                                 scope.launch {
-                                                    val all = tracksById.values.toList().ifEmpty { library.scan() }
+                                                    val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
                                                     val stats = AppGraph.history.stats()
                                                     val playCounts = stats.mapValues { it.value.playCount }
                                                     val moodStates = AppGraph.moodManager.allStates()
@@ -2861,9 +2861,9 @@ private fun AppShell(
                                                         activeMoodPlaylistId = moodId
                                                         activeMoodPlaylistName = moodName
                                                         AppGraph.queueSource.value = QueueSource(
-                                                            id = moodId,
+                                                            kind = QueueSourceKind.COLLECTION,
                                                             name = moodName,
-                                                            kind = QueueSourceKind.PLAYLIST,
+                                                            reference = moodId,
                                                         )
                                                         playback.play(queue, 0)
                                                     } else {
@@ -4531,7 +4531,7 @@ private fun AppShell(
                 onSelectPlaylist = { id, name ->
                     showStartupPlaylistDialog = false
                     scope.launch {
-                        val all = tracksById.values.toList().ifEmpty { library.scan() }
+                        val all = tracksById.values.toList().ifEmpty { library.scan().tracks }
                         val stats = AppGraph.history.stats()
                         val playCounts = stats.mapValues { it.value.playCount }
                         val moodStates = AppGraph.moodManager.allStates()
@@ -4553,9 +4553,9 @@ private fun AppShell(
                             activeMoodPlaylistId = id
                             activeMoodPlaylistName = name
                             AppGraph.queueSource.value = QueueSource(
-                                id = id,
+                                kind = QueueSourceKind.COLLECTION,
                                 name = name,
-                                kind = QueueSourceKind.PLAYLIST,
+                                reference = id,
                             )
                             playback.play(queue, 0)
                         } else {
